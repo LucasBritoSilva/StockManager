@@ -105,7 +105,7 @@ bool converterQuantidade(const std::string& texto, int& quantidade) {
     return true;
 }
 
-bool cadastrarProdutoPeloTerminal(Estoque& estoque) {
+bool cadastrarProdutoPeloTerminal(Estoque& estoque, const Historico& historico) {
     std::string codigo;
     while (true) {
         std::cout << "Codigo: ";
@@ -116,6 +116,15 @@ bool cadastrarProdutoPeloTerminal(Estoque& estoque) {
             break;
         }
         std::cout << "Codigo nao pode ser vazio. Tente novamente.\n";
+    }
+
+    if (estoque.buscarProdutoPorCodigo(codigo) != nullptr) {
+        std::cout << "Ja existe um produto com esse codigo.\n";
+        return true;
+    }
+    if (historico.possuiCodigo(codigo)) {
+        std::cout << "Esse codigo ja possui movimentacoes e nao pode ser reutilizado.\n";
+        return true;
     }
 
     std::string nome;
@@ -159,11 +168,6 @@ bool cadastrarProdutoPeloTerminal(Estoque& estoque) {
     const Produto produto{codigo, nome, precoCentavos, quantidade};
     if (!validarProduto(produto)) {
         std::cout << "Dados do produto invalidos.\n";
-        return true;
-    }
-
-    if (estoque.buscarProdutoPorCodigo(produto.codigo) != nullptr) {
-        std::cout << "Ja existe um produto com esse codigo.\n";
         return true;
     }
 
@@ -398,7 +402,7 @@ std::string formatarCentavos(long long valor) {
     return texto;
 }
 
-bool editarProdutoPeloTerminal(Estoque& estoque) {
+bool editarProdutoPeloTerminal(Estoque& estoque, const Historico& historico) {
     std::string codigoAtual;
     while (true) {
         std::cout << "Codigo atual do produto: ";
@@ -417,6 +421,10 @@ bool editarProdutoPeloTerminal(Estoque& estoque) {
     std::cout << "Novo codigo (Enter mantem " << anterior.codigo << "): ";
     if (!std::getline(std::cin, novoCodigo)) return false;
     if (novoCodigo.empty()) novoCodigo = anterior.codigo;
+    if (novoCodigo != anterior.codigo && historico.possuiCodigo(novoCodigo)) {
+        std::cout << "Esse codigo ja possui movimentacoes e nao pode ser reutilizado.\n";
+        return true;
+    }
 
     std::string novoNome;
     std::cout << "Novo nome (Enter mantem o atual): ";
@@ -644,7 +652,7 @@ int main() {
         if (opcao == "0") {
             break;
         } else if (opcao == "1") {
-            if (!cadastrarProdutoPeloTerminal(estoque)) {
+            if (!cadastrarProdutoPeloTerminal(estoque, historico)) {
                 break;
             }
         } else if (opcao == "2") {
@@ -662,7 +670,7 @@ int main() {
                 break;
             }
         } else if (opcao == "6") {
-            if (!editarProdutoPeloTerminal(estoque)) break;
+            if (!editarProdutoPeloTerminal(estoque, historico)) break;
         } else if (opcao == "7") {
             if (!excluirProdutoPeloTerminal(estoque)) break;
         } else if (opcao == "8") {

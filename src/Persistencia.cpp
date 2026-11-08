@@ -628,7 +628,8 @@ bool Persistencia::carregarHistorico(const std::string& caminho,
         if (!validarUtf8(entrada.codigoProduto) || !validarUtf8(entrada.nomeProduto) ||
             !carregado.adicionar(entrada)) {
             erro = "linha " + std::to_string(registro.linha) +
-                   " do historico: registro invalido ou identificador duplicado";
+                   " do historico: registro invalido, identificador duplicado ou "
+                   "saldo anterior/posterior incompativel";
             return false;
         }
     }

@@ -9,6 +9,7 @@ Sistema de gerenciamento de estoque em C++17, executado no terminal.
 - Registro e consulta do histórico de entradas e saídas.
 - Edição de código, nome, preço e estoque mínimo; a quantidade atual é preservada.
 - Exclusão confirmada de produtos; o histórico de movimentações permanece disponível.
+- Códigos que já aparecem no histórico ficam reservados: não podem ser reutilizados em outro cadastro ou em uma troca de código.
 - Alertas de estoque abaixo do mínimo, no mínimo e sem unidades.
 - Relatórios de produtos, unidades, valor estimado e movimentações.
 - Salvamento automático dos dados em CSV e recuperação de uma movimentação interrompida.
@@ -41,7 +42,9 @@ O programa cria `data/` quando for necessário salvar. O diretório é ignorado 
 
 `data/movimentacoes.csv` registra identificador, código e nome do produto, tipo de movimento, quantidade movimentada, data/hora UTC e quantidades anterior e posterior. Campos de texto seguem o escape CSV, incluindo vírgulas, aspas e quebras de linha; os arquivos são gravados em UTF-8.
 
-Cada gravação primeiro escreve um arquivo temporário e, no Windows, substitui o arquivo de destino usando `ReplaceFileW` ou `MoveFileExW`. Quando já existe um destino, a versão anterior é mantida em um arquivo `.bak...` ao lado dele. Backups não são removidos automaticamente. Se o histórico de uma movimentação for gravado antes de uma interrupção, a inicialização confere o saldo anterior/posterior e tenta completar a gravação do estoque. Divergências são reportadas e impedem que o aplicativo sobrescreva os dados silenciosamente.
+Um código associado a movimentações não pode ser usado em um novo cadastro nem escolhido como novo código em uma edição. Excluir o produto continua permitido e não apaga seu histórico. Essa reserva simples evita que a recuperação associe eventos antigos a um produto diferente; códigos históricos não podem ser liberados pelo programa.
+
+Cada gravação primeiro escreve um arquivo temporário e, no Windows, substitui o arquivo de destino usando `ReplaceFileW` ou `MoveFileExW`. Quando já existe um destino, a versão anterior é mantida em um arquivo `.bak...` ao lado dele. Backups não são removidos automaticamente. O histórico é organizado por identificador, rejeita identificadores duplicados e saldos que não formam uma sequência para o mesmo código. Se o histórico de uma movimentação for gravado antes de uma interrupção, a inicialização confere o saldo anterior/posterior e tenta completar a gravação do estoque. Divergências são reportadas e impedem que o aplicativo sobrescreva os dados silenciosamente.
 
 O carregamento é transacional: arquivos malformados, registros inválidos ou códigos duplicados não substituem o estado em memória. Arquivo inexistente ou vazio representa uma coleção vazia. O histórico não é apagado quando um produto é excluído.
 
@@ -53,7 +56,7 @@ Execute a suíte no PowerShell. O parâmetro de política vale somente para esse
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\run_tests.ps1
 ```
 
-O script compila a aplicação e os testes com `-std=c++17 -Wall -Wextra -pedantic`, executa testes de domínio, CSV e falhas de arquivo e faz um fluxo completo de terminal com reinicialização. Binários e dados dos testes são criados em uma pasta temporária do Windows e removidos ao final.
+O script compila a aplicação e os testes com `-std=c++17 -Wall -Wextra -pedantic`, executa a suíte tanto normalmente quanto com `NDEBUG`, testa o limite de tempo e faz fluxos de terminal e recuperação com reinicialização. O executável C++ cria seu próprio diretório temporário exclusivo e não aceita caminhos de limpeza. Binários e dados dos testes são criados em uma pasta temporária do Windows e removidos ao final.
 
 ## Exemplo de uso
 

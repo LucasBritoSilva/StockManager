@@ -11,6 +11,7 @@ private:
 
 public:
     const std::vector<Entrada>& obterEntradas() const;
+    bool possuiCodigo(const std::string& codigo) const;
     bool adicionar(const Entrada& entrada);
     long long proximoIdentificador() const;
 };
