@@ -1,4 +1,5 @@
 #include <charconv>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <string>
@@ -166,6 +167,37 @@ bool cadastrarProdutoPeloTerminal(Estoque& estoque) {
 
     return true;
 }
+bool buscarProdutoPeloTerminal(Estoque& estoque) {
+    std::string codigo;
+    while (true) {
+        std::cout << "Codigo do produto: ";
+        if (!std::getline(std::cin, codigo)) {
+            return false;
+        }
+        if (!codigo.empty()) {
+            break;
+        }
+        std::cout << "Codigo nao pode ser vazio. Tente novamente.\n";
+    }
+
+    const Produto* produto = estoque.buscarProdutoPorCodigo(codigo);
+    if (produto == nullptr) {
+        std::cout << "Produto nao encontrado.\n";
+        return true;
+    }
+
+    std::cout << "Codigo: " << produto->codigo << '\n';
+    std::cout << "Nome: " << produto->nome << '\n';
+
+    const char preenchimentoOriginal = std::cout.fill();
+    std::cout << "Preco: R$ " << produto->precoCentavos / 100 << ','
+              << std::setw(2) << std::setfill('0')
+              << produto->precoCentavos % 100 << '\n';
+    std::cout.fill(preenchimentoOriginal);
+
+    std::cout << "Quantidade: " << produto->quantidade << '\n';
+    return true;
+}
 int main() {
     Estoque estoque;
     std::string opcao;
@@ -188,7 +220,9 @@ int main() {
                 break;
             }
         } else if (opcao == "2") {
-            std::cout << "Funcionalidade ainda nao implementada.\n";
+            if (!buscarProdutoPeloTerminal(estoque)) {
+                break;
+            }
         } else {
             std::cout << "Opcao invalida. Tente novamente.\n";
         }
@@ -196,6 +230,7 @@ int main() {
 
     return 0;
 }
+
 
 
 
