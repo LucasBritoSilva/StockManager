@@ -1,0 +1,15 @@
+
+# Backup do repositório anterior
+.git-backup-codex/
+
+# Logs
+*.log
+
+# Arquivos compilados
+*.exe
+*.o
+*.obj
+
+# Diretórios de compilação
+build/
+bin/
