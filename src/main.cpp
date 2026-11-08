@@ -1,6 +1,8 @@
+#include <charconv>
 #include <iostream>
 #include <limits>
 #include <string>
+#include <system_error>
 
 #include "Estoque.h"
 
@@ -70,6 +72,30 @@ bool converterPrecoParaCentavos(const std::string& texto, long long& centavos) {
     return true;
 }
 
+bool converterQuantidade(const std::string& texto, int& quantidade) {
+    if (texto.empty()) {
+        return false;
+    }
+
+    for (char caractere : texto) {
+        if (caractere < '0' || caractere > '9') {
+            return false;
+        }
+    }
+
+    int resultado = 0;
+    const char* inicio = texto.data();
+    const char* fim = inicio + texto.size();
+    const auto conversao = std::from_chars(inicio, fim, resultado);
+
+    if (conversao.ec != std::errc{} || conversao.ptr != fim) {
+        return false;
+    }
+
+    quantidade = resultado;
+    return true;
+}
+
 int main() {
     Estoque estoque;
     std::string opcao;
@@ -96,3 +122,6 @@ int main() {
 
     return 0;
 }
+
+
+
