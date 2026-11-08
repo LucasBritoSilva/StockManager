@@ -14,6 +14,14 @@ enum class ResultadoMovimentacao {
     estoqueInsuficiente
 };
 
+enum class ResultadoProduto {
+    sucesso,
+    produtoNaoEncontrado,
+    dadosInvalidos,
+    codigoDuplicado,
+    quantidadeInvalida
+};
+
 class Estoque {
 private:
     std::vector<Produto> produtos;
@@ -25,6 +33,14 @@ public:
 
     ResultadoMovimentacao registrarEntrada(const std::string& codigo, int quantidade);
     ResultadoMovimentacao registrarSaida(const std::string& codigo, int quantidade);
+
+    ResultadoProduto editarProduto(const std::string& codigoAtual,
+                                   const std::string& novoCodigo,
+                                   const std::string& novoNome,
+                                   long long novoPrecoCentavos,
+                                   int novaQuantidadeMinima);
+    ResultadoProduto excluirProduto(const std::string& codigo);
+    ResultadoProduto definirQuantidadeMinima(const std::string& codigo, int quantidadeMinima);
 };
 
 #endif

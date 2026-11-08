@@ -17,5 +17,9 @@ bool validarProduto(const Produto& produto) {
         return false;
     }
 
+    if (produto.quantidadeMinima < 0) {
+        return false;
+    }
+
     return true;
 }

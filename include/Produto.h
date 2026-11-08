@@ -8,6 +8,7 @@ struct Produto {
     std::string nome;
     long long precoCentavos;
     int quantidade;
+    int quantidadeMinima = 0;
 };
 
 bool validarProduto(const Produto& produto);

@@ -259,7 +259,7 @@ bool Persistencia::salvar(const std::string& caminho,
         return false;
     }
 
-    arquivo << "codigo,nome,precoCentavos,quantidade\n";
+    arquivo << "codigo,nome,precoCentavos,quantidade,quantidadeMinima\n";
     std::size_t numeroProduto = 0;
     for (const Produto& produto : estoque.obterProdutos()) {
         ++numeroProduto;
@@ -279,7 +279,8 @@ bool Persistencia::salvar(const std::string& caminho,
 
         arquivo << escaparCampoCsv(produto.codigo) << ','
                 << escaparCampoCsv(produto.nome) << ','
-                << produto.precoCentavos << ',' << produto.quantidade << '\n';
+                << produto.precoCentavos << ',' << produto.quantidade << ','
+                << produto.quantidadeMinima << '\n';
         if (!arquivo) {
             erro = "falha durante a escrita do arquivo temporario";
             arquivo.close();
@@ -331,12 +332,6 @@ bool Persistencia::salvar(const std::string& caminho,
             return false;
         }
 
-        std::error_code limpezaErro;
-        std::filesystem::remove(backup, limpezaErro);
-        if (limpezaErro) {
-            erro = "dados salvos, mas o backup temporario nao foi removido: " +
-                   backup.string();
-        }
         return true;
     }
 
@@ -370,7 +365,6 @@ bool Persistencia::carregar(const std::string& caminho,
         return false;
     }
 
-    const std::string cabecalho = "codigo,nome,precoCentavos,quantidade";
     std::string conteudo((std::istreambuf_iterator<char>(arquivo)),
                          std::istreambuf_iterator<char>());
     if (arquivo.bad()) {
@@ -398,27 +392,38 @@ bool Persistencia::carregar(const std::string& caminho,
         erro = "linha " + std::to_string(linhaErro) + ": " + motivo;
         return false;
     }
-    if (registros.empty() || registros.front().campos.size() != 4 ||
-        registros.front().campos[0] != "codigo" ||
-        registros.front().campos[1] != "nome" ||
-        registros.front().campos[2] != "precoCentavos" ||
-        registros.front().campos[3] != "quantidade") {
+    const std::size_t quantidadeCampos = registros.empty()
+        ? 0 : registros.front().campos.size();
+    const bool formatoAntigo = quantidadeCampos == 4 &&
+        registros.front().campos[0] == "codigo" &&
+        registros.front().campos[1] == "nome" &&
+        registros.front().campos[2] == "precoCentavos" &&
+        registros.front().campos[3] == "quantidade";
+    const bool formatoAtual = quantidadeCampos == 5 &&
+        registros.front().campos[0] == "codigo" &&
+        registros.front().campos[1] == "nome" &&
+        registros.front().campos[2] == "precoCentavos" &&
+        registros.front().campos[3] == "quantidade" &&
+        registros.front().campos[4] == "quantidadeMinima";
+    if (!formatoAntigo && !formatoAtual) {
         erro = "linha 1: cabecalho CSV incorreto";
         return false;
     }
 
     for (std::size_t i = 1; i < registros.size(); ++i) {
         const RegistroCsv& registro = registros[i];
-        if (registro.campos.size() != 4) {
+        if (registro.campos.size() != quantidadeCampos) {
             erro = "linha " + std::to_string(registro.linha) +
-                   ": registro deve conter exatamente quatro campos";
+                   ": quantidade de campos nao corresponde ao cabecalho";
             return false;
         }
 
         long long precoCentavos = 0;
         int quantidade = 0;
+        int quantidadeMinima = 0;
         if (!converterInteiro(registro.campos[2], precoCentavos) ||
-            !converterInteiro(registro.campos[3], quantidade)) {
+            !converterInteiro(registro.campos[3], quantidade) ||
+            (formatoAtual && !converterInteiro(registro.campos[4], quantidadeMinima))) {
             erro = "linha " + std::to_string(registro.linha) +
                    ": preco ou quantidade invalido ou fora do limite";
             return false;
@@ -430,7 +435,7 @@ bool Persistencia::carregar(const std::string& caminho,
         }
 
         const Produto produto{registro.campos[0], registro.campos[1],
-                              precoCentavos, quantidade};
+                              precoCentavos, quantidade, quantidadeMinima};
         if (!validarProduto(produto)) {
             erro = "linha " + std::to_string(registro.linha) +
                    ": dados do produto invalidos";
@@ -444,5 +449,189 @@ bool Persistencia::carregar(const std::string& caminho,
     }
 
     estoque = std::move(estoqueCarregado);
+    return true;
+}
+
+bool Persistencia::salvarHistorico(const std::string& caminho,
+                                   const Historico& historico,
+                                   std::string& erro) {
+    erro.clear();
+    if (caminho.empty()) {
+        erro = "caminho do historico vazio";
+        return false;
+    }
+    const std::filesystem::path destino(caminho);
+    const auto diretorio = destino.parent_path();
+    std::error_code ec;
+    if (!diretorio.empty()) {
+        std::filesystem::create_directories(diretorio, ec);
+        if (ec) {
+            erro = "nao foi possivel criar o diretorio do historico: " + ec.message();
+            return false;
+        }
+    }
+
+    const std::string sufixo = criarSufixoTemporario();
+    std::filesystem::path temporario = destino;
+    temporario += ".tmp" + sufixo;
+    std::filesystem::path backup = destino;
+    backup += ".bak" + sufixo;
+
+    std::ofstream arquivo(temporario, std::ios::binary | std::ios::out | std::ios::trunc);
+    if (!arquivo.is_open()) {
+        erro = "nao foi possivel abrir o historico temporario";
+        return false;
+    }
+    arquivo << "identificador,codigoProduto,nomeProduto,tipo,quantidade,dataHoraUtc,"
+               "quantidadeAnterior,quantidadePosterior\n";
+    for (const Entrada& entrada : historico.obterEntradas()) {
+        if (!validarEntrada(entrada) || !validarUtf8(entrada.codigoProduto) ||
+            !validarUtf8(entrada.nomeProduto)) {
+            erro = "registro invalido no historico: " +
+                   std::to_string(entrada.identificador);
+            arquivo.close();
+            removerTemporario(temporario);
+            return false;
+        }
+        const char* tipo = entrada.tipo == TipoMovimentacao::entrada ? "entrada" : "saida";
+        arquivo << entrada.identificador << ',' << escaparCampoCsv(entrada.codigoProduto)
+                << ',' << escaparCampoCsv(entrada.nomeProduto) << ',' << tipo << ','
+                << entrada.quantidade << ',' << entrada.dataHoraUtc << ','
+                << entrada.quantidadeAnterior << ',' << entrada.quantidadePosterior << '\n';
+        if (!arquivo) {
+            erro = "falha durante escrita do historico temporario";
+            arquivo.close();
+            removerTemporario(temporario);
+            return false;
+        }
+    }
+    arquivo.flush();
+    if (!arquivo) {
+        erro = "falha ao descarregar o historico temporario";
+        arquivo.close();
+        removerTemporario(temporario);
+        return false;
+    }
+    arquivo.close();
+    if (arquivo.fail()) {
+        erro = "falha ao fechar o historico temporario";
+        removerTemporario(temporario);
+        return false;
+    }
+
+    const bool existe = std::filesystem::exists(destino, ec);
+    if (ec) {
+        erro = "nao foi possivel verificar o historico atual: " + ec.message();
+        removerTemporario(temporario);
+        return false;
+    }
+    if (existe) {
+        if (!ReplaceFileW(destino.c_str(), temporario.c_str(), backup.c_str(),
+                          REPLACEFILE_WRITE_THROUGH, nullptr, nullptr)) {
+            erro = "falha do Windows ao substituir o historico (codigo " +
+                   std::to_string(GetLastError()) + ")";
+            removerTemporario(temporario);
+            return false;
+        }
+        return true;
+    }
+    if (!MoveFileExW(temporario.c_str(), destino.c_str(), MOVEFILE_WRITE_THROUGH)) {
+        erro = "falha do Windows ao criar o historico (codigo " +
+               std::to_string(GetLastError()) + ")";
+        removerTemporario(temporario);
+        return false;
+    }
+    return true;
+}
+
+bool Persistencia::carregarHistorico(const std::string& caminho,
+                                     Historico& historico,
+                                     std::string& erro) {
+    erro.clear();
+    const std::filesystem::path caminhoArquivo(caminho);
+    std::ifstream arquivo(caminhoArquivo, std::ios::binary);
+    if (!arquivo.is_open()) {
+        std::error_code ec;
+        const bool existe = std::filesystem::exists(caminhoArquivo, ec);
+        if (ec) {
+            erro = "nao foi possivel verificar o arquivo de historico: " + ec.message();
+            return false;
+        }
+        if (!existe) {
+            historico = Historico{};
+            return true;
+        }
+        erro = "arquivo de historico existe, mas nao pode ser aberto";
+        return false;
+    }
+    std::string conteudo((std::istreambuf_iterator<char>(arquivo)),
+                         std::istreambuf_iterator<char>());
+    if (arquivo.bad()) {
+        erro = "falha durante leitura do historico";
+        return false;
+    }
+    if (conteudo.size() >= 3 &&
+        static_cast<unsigned char>(conteudo[0]) == 0xEF &&
+        static_cast<unsigned char>(conteudo[1]) == 0xBB &&
+        static_cast<unsigned char>(conteudo[2]) == 0xBF) {
+        conteudo.erase(0, 3);
+    }
+    if (conteudo.empty()) {
+        historico = Historico{};
+        return true;
+    }
+
+    std::vector<RegistroCsv> registros;
+    std::size_t linhaErro = 1;
+    std::string motivo;
+    if (!analisarCsv(conteudo, registros, linhaErro, motivo)) {
+        erro = "linha " + std::to_string(linhaErro) + " do historico: " + motivo;
+        return false;
+    }
+    const std::vector<std::string> cabecalho = {
+        "identificador", "codigoProduto", "nomeProduto", "tipo", "quantidade",
+        "dataHoraUtc", "quantidadeAnterior", "quantidadePosterior"};
+    if (registros.empty() || registros.front().campos != cabecalho) {
+        erro = "linha 1 do historico: cabecalho incorreto";
+        return false;
+    }
+
+    Historico carregado;
+    for (std::size_t i = 1; i < registros.size(); ++i) {
+        const RegistroCsv& registro = registros[i];
+        if (registro.campos.size() != 8) {
+            erro = "linha " + std::to_string(registro.linha) +
+                   " do historico: esperado exatamente oito campos";
+            return false;
+        }
+        Entrada entrada;
+        if (!converterInteiro(registro.campos[0], entrada.identificador) ||
+            !converterInteiro(registro.campos[4], entrada.quantidade) ||
+            !converterInteiro(registro.campos[6], entrada.quantidadeAnterior) ||
+            !converterInteiro(registro.campos[7], entrada.quantidadePosterior)) {
+            erro = "linha " + std::to_string(registro.linha) +
+                   " do historico: numero invalido ou fora do limite";
+            return false;
+        }
+        entrada.codigoProduto = registro.campos[1];
+        entrada.nomeProduto = registro.campos[2];
+        entrada.dataHoraUtc = registro.campos[5];
+        if (registro.campos[3] == "entrada") {
+            entrada.tipo = TipoMovimentacao::entrada;
+        } else if (registro.campos[3] == "saida") {
+            entrada.tipo = TipoMovimentacao::saida;
+        } else {
+            erro = "linha " + std::to_string(registro.linha) +
+                   " do historico: tipo desconhecido";
+            return false;
+        }
+        if (!validarUtf8(entrada.codigoProduto) || !validarUtf8(entrada.nomeProduto) ||
+            !carregado.adicionar(entrada)) {
+            erro = "linha " + std::to_string(registro.linha) +
+                   " do historico: registro invalido ou identificador duplicado";
+            return false;
+        }
+    }
+    historico = std::move(carregado);
     return true;
 }

@@ -4,6 +4,7 @@
 #include <string>
 
 #include "Estoque.h"
+#include "Historico.h"
 
 class Persistencia {
 public:
@@ -15,6 +16,16 @@ public:
     static bool carregar(
         const std::string& caminho,
         Estoque& estoque,
+        std::string& erro);
+
+    static bool salvarHistorico(
+        const std::string& caminho,
+        const Historico& historico,
+        std::string& erro);
+
+    static bool carregarHistorico(
+        const std::string& caminho,
+        Historico& historico,
         std::string& erro);
 };
 

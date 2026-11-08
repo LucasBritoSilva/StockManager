@@ -1,6 +1,8 @@
 #include "Estoque.h"
 
 #include <limits>
+#include <algorithm>
+#include <utility>
 
 bool Estoque::cadastrarProduto(const Produto& produto) {
     if (!validarProduto(produto)) {
@@ -69,4 +71,58 @@ ResultadoMovimentacao Estoque::registrarSaida(const std::string& codigo, int qua
     }
 
     return ResultadoMovimentacao::produtoNaoEncontrado;
+}
+
+ResultadoProduto Estoque::editarProduto(const std::string& codigoAtual,
+                                         const std::string& novoCodigo,
+                                         const std::string& novoNome,
+                                         long long novoPrecoCentavos,
+                                         int novaQuantidadeMinima) {
+    auto encontrado = std::find_if(produtos.begin(), produtos.end(),
+        [&](const Produto& produto) { return produto.codigo == codigoAtual; });
+    if (encontrado == produtos.end()) {
+        return ResultadoProduto::produtoNaoEncontrado;
+    }
+
+    Produto atualizado = *encontrado;
+    atualizado.codigo = novoCodigo;
+    atualizado.nome = novoNome;
+    atualizado.precoCentavos = novoPrecoCentavos;
+    atualizado.quantidadeMinima = novaQuantidadeMinima;
+    if (!validarProduto(atualizado)) {
+        return ResultadoProduto::dadosInvalidos;
+    }
+
+    for (const Produto& produto : produtos) {
+        if (&produto != &*encontrado && produto.codigo == novoCodigo) {
+            return ResultadoProduto::codigoDuplicado;
+        }
+    }
+
+    *encontrado = std::move(atualizado);
+    return ResultadoProduto::sucesso;
+}
+
+ResultadoProduto Estoque::excluirProduto(const std::string& codigo) {
+    const auto encontrado = std::find_if(produtos.begin(), produtos.end(),
+        [&](const Produto& produto) { return produto.codigo == codigo; });
+    if (encontrado == produtos.end()) {
+        return ResultadoProduto::produtoNaoEncontrado;
+    }
+    produtos.erase(encontrado);
+    return ResultadoProduto::sucesso;
+}
+
+ResultadoProduto Estoque::definirQuantidadeMinima(const std::string& codigo,
+                                                  int quantidadeMinima) {
+    if (quantidadeMinima < 0) {
+        return ResultadoProduto::quantidadeInvalida;
+    }
+    for (Produto& produto : produtos) {
+        if (produto.codigo == codigo) {
+            produto.quantidadeMinima = quantidadeMinima;
+            return ResultadoProduto::sucesso;
+        }
+    }
+    return ResultadoProduto::produtoNaoEncontrado;
 }
