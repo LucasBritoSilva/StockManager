@@ -253,6 +253,65 @@ void listarProdutosPeloTerminal(const Estoque& estoque) {
     std::cout.fill(preenchimentoOriginal);
     std::cout << "Total de produtos: " << produtos.size() << '\n';
 }
+bool movimentarProdutoPeloTerminal(Estoque& estoque, bool entrada) {
+    std::string codigo;
+    while (true) {
+        std::cout << "Codigo do produto: ";
+        if (!std::getline(std::cin, codigo)) {
+            return false;
+        }
+        if (!codigo.empty()) {
+            break;
+        }
+        std::cout << "Codigo nao pode ser vazio. Tente novamente.\n";
+    }
+
+    std::string textoQuantidade;
+    int quantidade = 0;
+    while (true) {
+        std::cout << (entrada ? "Quantidade da entrada: " : "Quantidade da saida: ");
+        if (!std::getline(std::cin, textoQuantidade)) {
+            return false;
+        }
+        if (converterQuantidade(textoQuantidade, quantidade)) {
+            break;
+        }
+        std::cout << "Quantidade invalida. Digite um inteiro nao negativo.\n";
+    }
+
+    const ResultadoMovimentacao resultado = entrada
+        ? estoque.registrarEntrada(codigo, quantidade)
+        : estoque.registrarSaida(codigo, quantidade);
+
+    switch (resultado) {
+        case ResultadoMovimentacao::sucesso:
+            std::cout << (entrada ? "Entrada registrada com sucesso.\n"
+                                  : "Saida registrada com sucesso.\n");
+            break;
+        case ResultadoMovimentacao::produtoNaoEncontrado:
+            std::cout << "Produto nao encontrado.\n";
+            break;
+        case ResultadoMovimentacao::quantidadeInvalida:
+            std::cout << "Quantidade da movimentacao deve ser maior que zero.\n";
+            break;
+        case ResultadoMovimentacao::limiteEstoqueExcedido:
+            std::cout << "Entrada excede o limite maximo de estoque.\n";
+            break;
+        case ResultadoMovimentacao::estoqueInsuficiente:
+            std::cout << "Estoque insuficiente para essa saida.\n";
+            break;
+    }
+
+    return true;
+}
+
+bool registrarEntradaPeloTerminal(Estoque& estoque) {
+    return movimentarProdutoPeloTerminal(estoque, true);
+}
+
+bool registrarSaidaPeloTerminal(Estoque& estoque) {
+    return movimentarProdutoPeloTerminal(estoque, false);
+}
 int main() {
     Estoque estoque;
     std::string opcao;
@@ -262,6 +321,8 @@ int main() {
         std::cout << "1. Cadastrar produto\n";
         std::cout << "2. Buscar produto\n";
         std::cout << "3. Listar produtos\n";
+        std::cout << "4. Registrar entrada\n";
+        std::cout << "5. Registrar saida\n";
         std::cout << "0. Sair\n";
         std::cout << "Opcao: ";
 
@@ -281,6 +342,14 @@ int main() {
             }
         } else if (opcao == "3") {
             listarProdutosPeloTerminal(estoque);
+        } else if (opcao == "4") {
+            if (!registrarEntradaPeloTerminal(estoque)) {
+                break;
+            }
+        } else if (opcao == "5") {
+            if (!registrarSaidaPeloTerminal(estoque)) {
+                break;
+            }
         } else {
             std::cout << "Opcao invalida. Tente novamente.\n";
         }
@@ -288,10 +357,4 @@ int main() {
 
     return 0;
 }
-
-
-
-
-
-
 
