@@ -13,6 +13,9 @@ private:
 public:
     bool cadastrarProduto(const Produto& produto);
     const Produto* buscarProdutoPorCodigo(const std::string& codigo) const;
+    const std::vector<Produto>& obterProdutos() const;
 };
 
 #endif
+
+

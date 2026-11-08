@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <charconv>
 #include <iomanip>
 #include <iostream>
@@ -198,6 +199,60 @@ bool buscarProdutoPeloTerminal(Estoque& estoque) {
     std::cout << "Quantidade: " << produto->quantidade << '\n';
     return true;
 }
+void listarProdutosPeloTerminal(const Estoque& estoque) {
+    const std::vector<Produto>& produtos = estoque.obterProdutos();
+    if (produtos.empty()) {
+        std::cout << "Estoque vazio.\n";
+        std::cout << "Total de produtos: 0\n";
+        return;
+    }
+
+    const auto formatarPreco = [](long long precoCentavos) {
+        std::string preco = "R$ " + std::to_string(precoCentavos / 100) + ",";
+        const long long centavos = precoCentavos % 100;
+        if (centavos < 10) {
+            preco += '0';
+        }
+        preco += std::to_string(centavos);
+        return preco;
+    };
+
+    std::size_t larguraCodigo = std::string("Codigo").size();
+    std::size_t larguraNome = std::string("Nome").size();
+    std::size_t larguraPreco = std::string("Preco").size();
+    std::size_t larguraQuantidade = std::string("Quantidade").size();
+
+    for (const Produto& produto : produtos) {
+        larguraCodigo = std::max(larguraCodigo, produto.codigo.size());
+        larguraNome = std::max(larguraNome, produto.nome.size());
+        larguraPreco = std::max(larguraPreco, formatarPreco(produto.precoCentavos).size());
+        larguraQuantidade = std::max(larguraQuantidade,
+                                     std::to_string(produto.quantidade).size());
+    }
+
+    const std::ios_base::fmtflags flagsOriginais = std::cout.flags();
+    const char preenchimentoOriginal = std::cout.fill();
+
+    std::cout << std::left << std::setw(static_cast<int>(larguraCodigo)) << "Codigo" << "  "
+              << std::left << std::setw(static_cast<int>(larguraNome)) << "Nome" << "  "
+              << std::right << std::setw(static_cast<int>(larguraPreco)) << "Preco" << "  "
+              << std::right << std::setw(static_cast<int>(larguraQuantidade)) << "Quantidade"
+              << '\n';
+
+    for (const Produto& produto : produtos) {
+        std::cout << std::left << std::setw(static_cast<int>(larguraCodigo)) << produto.codigo
+                  << "  " << std::left << std::setw(static_cast<int>(larguraNome))
+                  << produto.nome << "  " << std::right
+                  << std::setw(static_cast<int>(larguraPreco))
+                  << formatarPreco(produto.precoCentavos) << "  "
+                  << std::right << std::setw(static_cast<int>(larguraQuantidade))
+                  << produto.quantidade << '\n';
+    }
+
+    std::cout.flags(flagsOriginais);
+    std::cout.fill(preenchimentoOriginal);
+    std::cout << "Total de produtos: " << produtos.size() << '\n';
+}
 int main() {
     Estoque estoque;
     std::string opcao;
@@ -206,6 +261,7 @@ int main() {
         std::cout << "=== StockManager ===\n";
         std::cout << "1. Cadastrar produto\n";
         std::cout << "2. Buscar produto\n";
+        std::cout << "3. Listar produtos\n";
         std::cout << "0. Sair\n";
         std::cout << "Opcao: ";
 
@@ -223,6 +279,8 @@ int main() {
             if (!buscarProdutoPeloTerminal(estoque)) {
                 break;
             }
+        } else if (opcao == "3") {
+            listarProdutosPeloTerminal(estoque);
         } else {
             std::cout << "Opcao invalida. Tente novamente.\n";
         }
@@ -230,6 +288,8 @@ int main() {
 
     return 0;
 }
+
+
 
 
 

@@ -24,3 +24,8 @@ const Produto* Estoque::buscarProdutoPorCodigo(const std::string& codigo) const 
 
     return nullptr;
 }
+
+const std::vector<Produto>& Estoque::obterProdutos() const {
+    return produtos;
+}
+
