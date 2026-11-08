@@ -10,4 +10,6 @@ struct Produto {
     int quantidade;
 };
 
+bool validarProduto(const Produto& produto);
+
 #endif
