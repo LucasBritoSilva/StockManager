@@ -7,6 +7,9 @@
 #include <system_error>
 
 #include "Estoque.h"
+#include "Persistencia.h"
+
+bool salvarAlteracao(const Estoque& estoque);
 
 bool converterPrecoParaCentavos(const std::string& texto, long long& centavos) {
     if (texto.empty()) {
@@ -161,7 +164,9 @@ bool cadastrarProdutoPeloTerminal(Estoque& estoque) {
     }
 
     if (estoque.cadastrarProduto(produto)) {
-        std::cout << "Produto cadastrado com sucesso.\n";
+        if (salvarAlteracao(estoque)) {
+            std::cout << "Produto cadastrado e salvo com sucesso.\n";
+        }
     } else {
         std::cout << "Nao foi possivel cadastrar o produto.\n";
     }
@@ -285,8 +290,10 @@ bool movimentarProdutoPeloTerminal(Estoque& estoque, bool entrada) {
 
     switch (resultado) {
         case ResultadoMovimentacao::sucesso:
-            std::cout << (entrada ? "Entrada registrada com sucesso.\n"
-                                  : "Saida registrada com sucesso.\n");
+            if (salvarAlteracao(estoque)) {
+                std::cout << (entrada ? "Entrada registrada e salva com sucesso.\n"
+                                      : "Saida registrada e salva com sucesso.\n");
+            }
             break;
         case ResultadoMovimentacao::produtoNaoEncontrado:
             std::cout << "Produto nao encontrado.\n";
@@ -312,8 +319,28 @@ bool registrarEntradaPeloTerminal(Estoque& estoque) {
 bool registrarSaidaPeloTerminal(Estoque& estoque) {
     return movimentarProdutoPeloTerminal(estoque, false);
 }
+
+bool salvarAlteracao(const Estoque& estoque) {
+    std::string erro;
+    if (!Persistencia::salvar("data/produtos.csv", estoque, erro)) {
+        std::cerr << "Aviso: alteracao mantida apenas em memoria; nao foi persistida: "
+                  << erro << '\n';
+        return false;
+    }
+    if (!erro.empty()) {
+        std::cerr << "Aviso: " << erro << '\n';
+    }
+    return true;
+}
+
 int main() {
     Estoque estoque;
+    std::string erroCarregamento;
+    if (!Persistencia::carregar("data/produtos.csv", estoque, erroCarregamento)) {
+        std::cerr << "Erro ao carregar os dados; o arquivo nao sera sobrescrito: "
+                  << erroCarregamento << '\n';
+        return 1;
+    }
     std::string opcao;
 
     while (true) {
