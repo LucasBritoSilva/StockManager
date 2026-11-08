@@ -96,6 +96,76 @@ bool converterQuantidade(const std::string& texto, int& quantidade) {
     return true;
 }
 
+bool cadastrarProdutoPeloTerminal(Estoque& estoque) {
+    std::string codigo;
+    while (true) {
+        std::cout << "Codigo: ";
+        if (!std::getline(std::cin, codigo)) {
+            return false;
+        }
+        if (!codigo.empty()) {
+            break;
+        }
+        std::cout << "Codigo nao pode ser vazio. Tente novamente.\n";
+    }
+
+    std::string nome;
+    while (true) {
+        std::cout << "Nome: ";
+        if (!std::getline(std::cin, nome)) {
+            return false;
+        }
+        if (!nome.empty()) {
+            break;
+        }
+        std::cout << "Nome nao pode ser vazio. Tente novamente.\n";
+    }
+
+    std::string textoPreco;
+    long long precoCentavos = 0;
+    while (true) {
+        std::cout << "Preco (ex.: 159,90): ";
+        if (!std::getline(std::cin, textoPreco)) {
+            return false;
+        }
+        if (converterPrecoParaCentavos(textoPreco, precoCentavos)) {
+            break;
+        }
+        std::cout << "Preco invalido. Tente novamente.\n";
+    }
+
+    std::string textoQuantidade;
+    int quantidade = 0;
+    while (true) {
+        std::cout << "Quantidade: ";
+        if (!std::getline(std::cin, textoQuantidade)) {
+            return false;
+        }
+        if (converterQuantidade(textoQuantidade, quantidade)) {
+            break;
+        }
+        std::cout << "Quantidade invalida. Tente novamente.\n";
+    }
+
+    const Produto produto{codigo, nome, precoCentavos, quantidade};
+    if (!validarProduto(produto)) {
+        std::cout << "Dados do produto invalidos.\n";
+        return true;
+    }
+
+    if (estoque.buscarProdutoPorCodigo(produto.codigo) != nullptr) {
+        std::cout << "Ja existe um produto com esse codigo.\n";
+        return true;
+    }
+
+    if (estoque.cadastrarProduto(produto)) {
+        std::cout << "Produto cadastrado com sucesso.\n";
+    } else {
+        std::cout << "Nao foi possivel cadastrar o produto.\n";
+    }
+
+    return true;
+}
 int main() {
     Estoque estoque;
     std::string opcao;
@@ -113,7 +183,11 @@ int main() {
 
         if (opcao == "0") {
             break;
-        } else if (opcao == "1" || opcao == "2") {
+        } else if (opcao == "1") {
+            if (!cadastrarProdutoPeloTerminal(estoque)) {
+                break;
+            }
+        } else if (opcao == "2") {
             std::cout << "Funcionalidade ainda nao implementada.\n";
         } else {
             std::cout << "Opcao invalida. Tente novamente.\n";
@@ -122,6 +196,7 @@ int main() {
 
     return 0;
 }
+
 
 
 
